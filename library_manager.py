@@ -1,31 +1,8 @@
 import streamlit as st
-import json
+from database import add_book, remove_book, search_books, get_all_books, get_book_counts
 
-#! File to store the library data
-LIBRARY_FILE = "library.json"
-
-#! Load the library from file
-def load_library():
-    try:
-        with open(LIBRARY_FILE, "r") as file:
-            return json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
-
-#! Save the library to file
-def save_library(library):
-    with open(LIBRARY_FILE, "w") as file:
-        json.dump(library, file, indent=4)
-
-
-#! Initialize library
-title = "Personal Library Manager 📚"
-st.set_page_config(page_title=title)
-st.title(title)
-
-if "library" not in st.session_state:
-    st.session_state.library = load_library()
-
+st.set_page_config(page_title="Personal Library Manager 📚")
+st.title("Personal Library Manager 📚")
 
 #! Apply custom background color
 st.markdown(
@@ -36,7 +13,7 @@ st.markdown(
             color: black;
         }
         .stSidebar {
-            background:#B89AD3;;
+            background:rgba(255, 255, 255, 0.2);
             color: white;
         }
         .stButton>button {
@@ -57,53 +34,52 @@ author = st.sidebar.text_input("Author")
 year = st.sidebar.number_input("Publication Year", min_value=0, step=1)
 genre = st.sidebar.text_input("Genre")
 read_status = st.sidebar.checkbox("Have you read this book?")
+
 if st.sidebar.button("Add Book"):
-    new_book = {
-        "title": title,
-        "author": author,
-        "year": year,
-        "genre": genre,
-        "read": read_status
-    }
-    st.session_state.library.append(new_book)
-    save_library(st.session_state.library)
+    add_book(title, author, year, genre, read_status)
     st.sidebar.success("Book added successfully!")
 
 #! Remove a book
 st.sidebar.header("Remove a Book 🚮")
-titles = [book["title"] for book in st.session_state.library]
+books = get_all_books()
+titles = [book[0] for book in books]  # Extracting titles from the list of books
 book_to_remove = st.sidebar.selectbox("Select a book to remove", ["None"] + titles)
+
 if st.sidebar.button("Remove Book") and book_to_remove != "None":
-    st.session_state.library = [book for book in st.session_state.library if book["title"] != book_to_remove]
-    save_library(st.session_state.library)
+    remove_book(book_to_remove)
     st.sidebar.success("Book removed successfully!")
 
 #! Search for a book
 st.header("Search for a Book 🔍📕")
 search_query = st.text_input("Enter a title or author to search")
+
 if st.button("Search"):
-    results = [book for book in st.session_state.library if search_query.lower() in book["title"].lower() or search_query.lower() in book["author"].lower()]
+    results = search_books(search_query)
     if results:
-        st.write("### Matching Books 📚:")
+        st.header("Matching Books 📚:")
         for book in results:
-            status = "Read" if book["read"] else "Unread"
-            st.write(f'- **{book["title"]}** by {book["author"]} ({book["year"]}) - {book["genre"]} - {status}')
+            status = "Read" if book[4] else "Unread"
+            st.write(f'- **{book[0]}** by {book[1]} ({book[2]}) - {book[3]} - {status}')
     else:
         st.write("No books found ❌")
 
 #! Display all books
 st.header("All Books in Your Library 🧾")
-if st.session_state.library:
-    for book in st.session_state.library:
-        status = "Read" if book["read"] else "Unread"
-        st.write(f'- **{book["title"]}** by {book["author"]} ({book["year"]}) - {book["genre"]} - {status}')
+all_books = get_all_books()
+if all_books:
+    for book in all_books:
+        status = "Read" if book[4] else "Unread"
+        st.write(f'- **{book[0]}** by {book[1]} ({book[2]}) - {book[3]} - {status}')
 else:
     st.write("No books in your library ❌")
 
 #! Display statistics
 st.header("Library Statistics 📊")
-total_books = len(st.session_state.library)
-read_books = sum(1 for book in st.session_state.library if book["read"])
+
+#! fetching book count from database
+total_books, read_books = get_book_counts()
 percentage_read = (read_books / total_books * 100) if total_books > 0 else 0
+
 st.write(f'**Total books:** {total_books}')
 st.write(f'**Percentage read:** {percentage_read:.2f}%')
+
